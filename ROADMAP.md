@@ -14,7 +14,7 @@
 - [x] Implement WASD movement and controls
 - [x] Support dynamic seed and map size selection
 - [x] Add mobile WebSocket interface and browser client
-- [ ] Add firing actions and weapon mechanics
+- [x] Add firing actions and weapon mechanics
 - [ ] Implement mock serial fallback for hardware development
 - [ ] Improve in-game HUD and action feedback
 - [ ] Add integration tests for movement, action points, and pickups

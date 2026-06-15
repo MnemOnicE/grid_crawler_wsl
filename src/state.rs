@@ -189,26 +189,33 @@ pub fn fire_at_direction(state: &mut GameState, dx: isize, dy: isize) -> bool {
     if idx.is_none() {
         return false;
     }
-    let idx = idx.unwrap();
-    let x = idx % state.width;
-    let y = idx / state.width;
-    let nx = x as isize + dx;
-    let ny = y as isize + dy;
-    if nx < 0 || ny < 0 || nx >= state.width as isize || ny >= state.height as isize {
-        return false;
-    }
-    let nidx = (ny as usize) * state.width + (nx as usize);
-    let target = state.map_matrix[nidx];
-    if target == Tile::Wall as u8 {
-        return false;
-    }
     if state.stats.ap < 2 {
         return false;
     }
     state.stats.ap = state.stats.ap.saturating_sub(2);
-    if consume_tile_effect(state, target) {
-        state.map_matrix[nidx] = Tile::Empty as u8;
-        return true;
+
+    let idx = idx.unwrap();
+    let mut cx = (idx % state.width) as isize;
+    let mut cy = (idx / state.width) as isize;
+
+    loop {
+        cx += dx;
+        cy += dy;
+        if cx < 0 || cy < 0 || cx >= state.width as isize || cy >= state.height as isize {
+            break;
+        }
+        let nidx = (cy as usize) * state.width + (cx as usize);
+        let target = state.map_matrix[nidx];
+        if target == Tile::Wall as u8 {
+            break;
+        }
+        if target == Tile::Enemy as u8 {
+            state.map_matrix[nidx] = Tile::Wreck as u8;
+            return true;
+        } else if target != Tile::Empty as u8 {
+            state.map_matrix[nidx] = Tile::Empty as u8;
+            return true;
+        }
     }
     false
 }
@@ -342,5 +349,51 @@ mod tests {
         gs.map_matrix[1] = Tile::Empty as u8;
         assert!(move_player(&mut gs, 1, 0));
         assert_eq!(gs.stats.ap, 2);
+    }
+}
+
+#[cfg(test)]
+mod fire_tests {
+    use super::*;
+
+    #[test]
+    fn test_fire_at_direction_raycast() {
+        let mut gs = GameState {
+            phase: AppPhase::Playing,
+            stats: PlayerStats {
+                health: 100,
+                armor: 0,
+                ap: 4,
+                is_supercharging: false,
+                has_shield: false,
+                active_item: 0,
+                item_charges: 0,
+            },
+            map_matrix: vec![
+                Tile::Player as u8,
+                Tile::Empty as u8,
+                Tile::Empty as u8,
+                Tile::Enemy as u8,
+            ],
+            width: 4,
+            height: 1,
+            seed: 1,
+        };
+
+        // Fire right
+        let hit = fire_at_direction(&mut gs, 1, 0);
+        assert!(hit);
+        assert_eq!(gs.stats.ap, 2);
+        assert_eq!(gs.map_matrix[3], Tile::Wreck as u8);
+
+        // Fire again, should hit the wreck and turn it into empty
+        let hit2 = fire_at_direction(&mut gs, 1, 0);
+        assert!(hit2);
+        assert_eq!(gs.stats.ap, 0);
+        assert_eq!(gs.map_matrix[3], Tile::Empty as u8);
+
+        // Fire again, not enough AP
+        let hit3 = fire_at_direction(&mut gs, 1, 0);
+        assert!(!hit3);
     }
 }
