@@ -16,7 +16,10 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, Paragraph},
 };
-use state::{AppPhase, GameState, initialize_state, move_player, regenerate_map, spawn_drops};
+use state::{
+    AppPhase, GameState, fire_at_direction, initialize_state, move_player, regenerate_map,
+    spawn_drops,
+};
 use std::env;
 use std::io;
 use std::sync::Arc;
@@ -44,13 +47,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut last_spawn = Instant::now();
+    let mut aiming = false;
 
     loop {
         let mut lock = game_state.lock().unwrap();
 
         terminal.draw(|f| match lock.phase {
             AppPhase::StartScreen => draw_start_screen(f, &lock),
-            AppPhase::Playing => draw_combat_ui(f, &lock),
+            AppPhase::Playing => draw_combat_ui(f, &lock, aiming),
             AppPhase::GameOver => draw_game_over(f),
         })?;
 
@@ -92,13 +96,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 AppPhase::Playing => {
-                    let _moved = match key.code {
-                        KeyCode::Up | KeyCode::Char('w') => move_player(&mut lock, 0, -1),
-                        KeyCode::Down | KeyCode::Char('s') => move_player(&mut lock, 0, 1),
-                        KeyCode::Left | KeyCode::Char('a') => move_player(&mut lock, -1, 0),
-                        KeyCode::Right | KeyCode::Char('d') => move_player(&mut lock, 1, 0),
+                    let _action_taken = match key.code {
+                        KeyCode::Up | KeyCode::Char('w') => {
+                            if aiming {
+                                aiming = false;
+                                fire_at_direction(&mut lock, 0, -1)
+                            } else {
+                                move_player(&mut lock, 0, -1)
+                            }
+                        }
+                        KeyCode::Down | KeyCode::Char('s') => {
+                            if aiming {
+                                aiming = false;
+                                fire_at_direction(&mut lock, 0, 1)
+                            } else {
+                                move_player(&mut lock, 0, 1)
+                            }
+                        }
+                        KeyCode::Left | KeyCode::Char('a') => {
+                            if aiming {
+                                aiming = false;
+                                fire_at_direction(&mut lock, -1, 0)
+                            } else {
+                                move_player(&mut lock, -1, 0)
+                            }
+                        }
+                        KeyCode::Right | KeyCode::Char('d') => {
+                            if aiming {
+                                aiming = false;
+                                fire_at_direction(&mut lock, 1, 0)
+                            } else {
+                                move_player(&mut lock, 1, 0)
+                            }
+                        }
                         KeyCode::Char(' ') => {
-                            /* fire — not implemented */
+                            aiming = !aiming;
                             false
                         }
                         KeyCode::Char('O') => {
@@ -152,7 +184,7 @@ fn draw_start_screen(f: &mut Frame, state: &GameState) {
     f.render_widget(paragraph, f.area());
 }
 
-fn draw_combat_ui(f: &mut Frame, state: &GameState) {
+fn draw_combat_ui(f: &mut Frame, state: &GameState, aiming: bool) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -219,8 +251,11 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState) {
     f.render_widget(grid_widget, chunks[0]);
 
     // --- Controls Legend ---
-    let controls =
-        " [↑/↓/←/→/WASD] Maneuver Tank | [SPACE] Fire Shell | [O] Overdrive | [ESC] Retreat ";
+    let controls = if aiming {
+        " [↑/↓/←/→/WASD] Choose Fire Direction | [SPACE] Cancel Aim "
+    } else {
+        " [↑/↓/←/→/WASD] Maneuver Tank | [SPACE] Aim Shell | [O] Overdrive | [ESC] Retreat "
+    };
     let controls_widget = Paragraph::new(controls)
         .block(
             Block::default()
