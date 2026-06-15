@@ -58,7 +58,7 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
     }
 
     // Place resource nodes (~3%) and pickups (~4%)
-    for item in map.iter_mut().take(size) {
+    for item in &mut map {
         if *item == Tile::Empty as u8 {
             let roll: f64 = rng.gen_range(0.0..1.0);
             if roll < 0.03 {
