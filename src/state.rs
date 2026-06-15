@@ -51,7 +51,7 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
     let mut map = vec![Tile::Empty as u8; size];
 
     // Place walls randomly (~12% of tiles)
-    for item in map.iter_mut().take(size) {
+    for item in &mut map {
         if rng.gen_bool(0.12) {
             *item = Tile::Wall as u8;
         }
