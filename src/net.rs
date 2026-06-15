@@ -70,25 +70,27 @@ pub fn start_ws_server(state: SharedState, addr: &str) {
         rt.block_on(async move {
             let state_filter = warp::any().map(move || state_clone.clone());
 
-            let ws_route = warp::path("ws")
-                .and(warp::ws())
-                .and(state_filter)
-                .map(|ws: warp::ws::Ws, state: SharedState| {
+            let ws_route = warp::path("ws").and(warp::ws()).and(state_filter).map(
+                |ws: warp::ws::Ws, state: SharedState| {
                     ws.on_upgrade(move |socket| client_connection(socket, state))
-                });
+                },
+            );
 
             let index_route = warp::path::end().map(|| warp::reply::html(INDEX_HTML));
 
-            let routes = index_route.or(ws_route)
+            let routes = index_route
+                .or(ws_route)
                 .with(warp::cors().allow_any_origin());
 
-            warp::serve(routes).run(addr.parse::<std::net::SocketAddr>().unwrap()).await;
+            warp::serve(routes)
+                .run(addr.parse::<std::net::SocketAddr>().unwrap())
+                .await;
         });
     });
 }
 
 async fn client_connection(ws: warp::ws::WebSocket, state: SharedState) {
-    use futures::{StreamExt, SinkExt};
+    use futures::{SinkExt, StreamExt};
 
     #[derive(serde::Deserialize)]
     struct ClientCommand {
@@ -114,8 +116,10 @@ async fn client_connection(ws: warp::ws::WebSocket, state: SharedState) {
                     ap: lock.stats.ap,
                 }
             };
-            if let Ok(s) = serde_json::to_string(&snap) {
-                if tx.send(warp::ws::Message::text(s)).await.is_err() { break; }
+            if let Ok(s) = serde_json::to_string(&snap)
+                && tx.send(warp::ws::Message::text(s)).await.is_err()
+            {
+                break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         }
@@ -123,29 +127,45 @@ async fn client_connection(ws: warp::ws::WebSocket, state: SharedState) {
 
     let recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = rx.next().await {
-            if let Ok(text) = msg.to_str() {
-                if let Ok(cmd) = serde_json::from_str::<ClientCommand>(text) {
-                    let mut lock = state_for_recv.lock().unwrap();
-                    if cmd.action == "move" {
-                        if let Some(direction) = cmd.direction.as_deref() {
-                            match direction {
-                                "up" => { let _ = move_player(&mut lock, 0, -1); }
-                                "down" => { let _ = move_player(&mut lock, 0, 1); }
-                                "left" => { let _ = move_player(&mut lock, -1, 0); }
-                                "right" => { let _ = move_player(&mut lock, 1, 0); }
-                                _ => {}
+            if let Ok(text) = msg.to_str()
+                && let Ok(cmd) = serde_json::from_str::<ClientCommand>(text)
+            {
+                let mut lock = state_for_recv.lock().unwrap();
+                if cmd.action == "move" {
+                    if let Some(direction) = cmd.direction.as_deref() {
+                        match direction {
+                            "up" => {
+                                let _ = move_player(&mut lock, 0, -1);
                             }
-                        }
-                    } else if cmd.action == "fire" {
-                        if let Some(direction) = cmd.direction.as_deref() {
-                            match direction {
-                                "up" => { let _ = fire_at_direction(&mut lock, 0, -1); }
-                                "down" => { let _ = fire_at_direction(&mut lock, 0, 1); }
-                                "left" => { let _ = fire_at_direction(&mut lock, -1, 0); }
-                                "right" => { let _ = fire_at_direction(&mut lock, 1, 0); }
-                                _ => {}
+                            "down" => {
+                                let _ = move_player(&mut lock, 0, 1);
                             }
+                            "left" => {
+                                let _ = move_player(&mut lock, -1, 0);
+                            }
+                            "right" => {
+                                let _ = move_player(&mut lock, 1, 0);
+                            }
+                            _ => {}
                         }
+                    }
+                } else if cmd.action == "fire"
+                    && let Some(direction) = cmd.direction.as_deref()
+                {
+                    match direction {
+                        "up" => {
+                            let _ = fire_at_direction(&mut lock, 0, -1);
+                        }
+                        "down" => {
+                            let _ = fire_at_direction(&mut lock, 0, 1);
+                        }
+                        "left" => {
+                            let _ = fire_at_direction(&mut lock, -1, 0);
+                        }
+                        "right" => {
+                            let _ = fire_at_direction(&mut lock, 1, 0);
+                        }
+                        _ => {}
                     }
                 }
             }

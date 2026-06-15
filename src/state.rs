@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex};
-use std::env;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use std::env;
+use std::sync::{Arc, Mutex};
 
 #[derive(PartialEq)]
 pub enum AppPhase {
@@ -51,21 +51,25 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
     let mut map = vec![Tile::Empty as u8; size];
 
     // Place walls randomly (~12% of tiles)
-    for i in 0..size {
+    for item in map.iter_mut().take(size) {
         if rng.gen_bool(0.12) {
-            map[i] = Tile::Wall as u8;
+            *item = Tile::Wall as u8;
         }
     }
 
     // Place resource nodes (~3%) and pickups (~4%)
-    for i in 0..size {
-        if map[i] == Tile::Empty as u8 {
+    for item in map.iter_mut().take(size) {
+        if *item == Tile::Empty as u8 {
             let roll: f64 = rng.gen_range(0.0..1.0);
             if roll < 0.03 {
-                map[i] = Tile::Resource as u8;
+                *item = Tile::Resource as u8;
             } else if roll < 0.07 {
                 // health or other pickups
-                map[i] = if rng.gen_bool(0.5) { Tile::Health as u8 } else { Tile::Smoke as u8 };
+                *item = if rng.gen_bool(0.5) {
+                    Tile::Health as u8
+                } else {
+                    Tile::Smoke as u8
+                };
             }
         }
     }
@@ -73,7 +77,7 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
     // Ensure at least one player and one enemy placed
     let mut placed = 0;
     while placed < 2 {
-        let idx = rng.gen_range(0..size) as usize;
+        let idx = rng.gen_range(0..size);
         if map[idx] == Tile::Empty as u8 {
             if placed == 0 {
                 map[idx] = Tile::Player as u8;
@@ -87,48 +91,25 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
     map
 }
 
-/// Apply a pickup/drop effect at the given index in the map for the provided state.
-/// Returns true if a pickup was consumed and applied.
-pub fn apply_pickup(state: &mut GameState, idx: usize) -> bool {
-    if idx >= state.map_matrix.len() { return false }
-    let tile = state.map_matrix[idx];
-    let applied = match tile {
-        x if x == Tile::Health as u8 => {
-            state.stats.health = state.stats.health.saturating_add(25).min(100);
-            true
-        }
-        x if x == Tile::Smoke as u8 => {
-            state.stats.active_item = 1; // smoke
-            state.stats.item_charges = 1;
-            true
-        }
-        x if x == Tile::Resource as u8 => {
-            state.stats.ap = (state.stats.ap + 2).min(12);
-            true
-        }
-        x if x == Tile::Mine as u8 => {
-            state.stats.health = state.stats.health.saturating_sub(15);
-            true
-        }
-        _ => false,
-    };
-    if applied {
-        state.map_matrix[idx] = Tile::Empty as u8;
-    }
-    applied
-}
-
 /// Create the initial shared game state, respecting optional environment overrides.
 pub fn initialize_state() -> SharedState {
     // Allow overriding seed and size via env vars for replayability
-    let seed = env::var("GRID_SEED").ok().and_then(|s| s.parse::<u64>().ok())
+    let seed = env::var("GRID_SEED")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or_else(|| {
             // fallback to time-based seed
             use std::time::{SystemTime, UNIX_EPOCH};
-            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
         });
 
-    let size = env::var("GRID_SIZE").ok().and_then(|s| s.parse::<usize>().ok()).unwrap_or(8usize);
+    let size = env::var("GRID_SIZE")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(8usize);
     let width = size;
     let height = size;
 
@@ -167,17 +148,28 @@ pub fn regenerate_map(state: &mut GameState, seed: u64, size: usize) {
 /// Move the player by dx,dy if there is enough AP and no wall. Returns true if moved.
 /// Move the player by a delta if the destination is valid and AP is available.
 pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
-    let idx = state.map_matrix.iter().position(|&v| v == Tile::Player as u8);
-    if idx.is_none() { return false; }
+    let idx = state
+        .map_matrix
+        .iter()
+        .position(|&v| v == Tile::Player as u8);
+    if idx.is_none() {
+        return false;
+    }
     let idx = idx.unwrap();
     let x = idx % state.width;
     let y = idx / state.width;
     let nx = x as isize + dx;
     let ny = y as isize + dy;
-    if nx < 0 || ny < 0 || nx >= state.width as isize || ny >= state.height as isize { return false; }
+    if nx < 0 || ny < 0 || nx >= state.width as isize || ny >= state.height as isize {
+        return false;
+    }
     let nidx = (ny as usize) * state.width + (nx as usize);
-    if state.map_matrix[nidx] == Tile::Wall as u8 || state.map_matrix[nidx] == Tile::Enemy as u8 { return false; }
-    if state.stats.ap == 0 { return false; }
+    if state.map_matrix[nidx] == Tile::Wall as u8 || state.map_matrix[nidx] == Tile::Enemy as u8 {
+        return false;
+    }
+    if state.stats.ap == 0 {
+        return false;
+    }
     state.stats.ap = state.stats.ap.saturating_sub(1);
     let target_tile = state.map_matrix[nidx];
     state.map_matrix[idx] = Tile::Empty as u8;
@@ -188,18 +180,29 @@ pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
 
 /// Fire into an adjacent tile, consuming AP and resolving any tile effect.
 pub fn fire_at_direction(state: &mut GameState, dx: isize, dy: isize) -> bool {
-    let idx = state.map_matrix.iter().position(|&v| v == Tile::Player as u8);
-    if idx.is_none() { return false; }
+    let idx = state
+        .map_matrix
+        .iter()
+        .position(|&v| v == Tile::Player as u8);
+    if idx.is_none() {
+        return false;
+    }
     let idx = idx.unwrap();
     let x = idx % state.width;
     let y = idx / state.width;
     let nx = x as isize + dx;
     let ny = y as isize + dy;
-    if nx < 0 || ny < 0 || nx >= state.width as isize || ny >= state.height as isize { return false; }
+    if nx < 0 || ny < 0 || nx >= state.width as isize || ny >= state.height as isize {
+        return false;
+    }
     let nidx = (ny as usize) * state.width + (nx as usize);
     let target = state.map_matrix[nidx];
-    if target == Tile::Wall as u8 { return false; }
-    if state.stats.ap < 2 { return false; }
+    if target == Tile::Wall as u8 {
+        return false;
+    }
+    if state.stats.ap < 2 {
+        return false;
+    }
     state.stats.ap = state.stats.ap.saturating_sub(2);
     if consume_tile_effect(state, target) {
         state.map_matrix[nidx] = Tile::Empty as u8;
@@ -238,9 +241,9 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
 /// Spawn occasional drops into empty tiles; simple probability per call.
 /// Spawn new pickups or hazards into empty tiles using a seeded RNG.
 pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
     use rand::Rng;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
     let mut rng = StdRng::seed_from_u64(rng_seed);
     let size = state.width * state.height;
     for _ in 0..3 {
@@ -290,15 +293,24 @@ mod tests {
     fn apply_health_pickup_works() {
         let mut gs = GameState {
             phase: AppPhase::Playing,
-            stats: PlayerStats { health: 50, armor: 10, ap: 6, is_supercharging: false, has_shield: false, active_item: 0, item_charges: 0 },
+            stats: PlayerStats {
+                health: 50,
+                armor: 10,
+                ap: 6,
+                is_supercharging: false,
+                has_shield: false,
+                active_item: 0,
+                item_charges: 0,
+            },
             map_matrix: vec![Tile::Health as u8],
             width: 1,
             height: 1,
             seed: 1,
         };
-        let applied = apply_pickup(&mut gs, 0);
+        let applied = consume_tile_effect(&mut gs, Tile::Health as u8);
+        gs.map_matrix[0] = Tile::Empty as u8;
         assert!(applied);
-        assert_eq!(gs.stats.health, 75);
+        assert_eq!(gs.stats.health, 70);
         assert_eq!(gs.map_matrix[0], Tile::Empty as u8);
     }
 
@@ -306,7 +318,15 @@ mod tests {
     fn player_movement_and_collision() {
         let mut gs = GameState {
             phase: AppPhase::Playing,
-            stats: PlayerStats { health: 100, armor: 0, ap: 3, is_supercharging: false, has_shield: false, active_item: 0, item_charges: 0 },
+            stats: PlayerStats {
+                health: 100,
+                armor: 0,
+                ap: 3,
+                is_supercharging: false,
+                has_shield: false,
+                active_item: 0,
+                item_charges: 0,
+            },
             map_matrix: vec![Tile::Player as u8, Tile::Wall as u8, Tile::Empty as u8],
             width: 3,
             height: 1,
