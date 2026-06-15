@@ -27,6 +27,7 @@ pub struct GameState {
     pub width: usize,
     pub height: usize,
     pub seed: u64,
+    pub player_idx: usize,
 }
 
 pub type SharedState = Arc<Mutex<GameState>>;
@@ -45,10 +46,11 @@ pub enum Tile {
 }
 
 /// Generate a deterministic tile map from a seed and dimensions.
-fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
+fn generate_map(seed: u64, width: usize, height: usize) -> (Vec<u8>, usize) {
     let mut rng = StdRng::seed_from_u64(seed);
     let size = width * height;
     let mut map = vec![Tile::Empty as u8; size];
+    let mut player_idx = 0;
 
     // Place walls randomly (~12% of tiles)
     for item in map.iter_mut().take(size) {
@@ -76,10 +78,11 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
 
     // Ensure at least one player and one enemy placed
     let mut placed = 0;
-    for item in map.iter_mut().take(size) {
+    for (i, item) in map.iter_mut().take(size).enumerate() {
         if *item == Tile::Empty as u8 {
             if placed == 0 {
                 *item = Tile::Player as u8;
+                player_idx = i;
             } else if placed == 1 {
                 *item = Tile::Enemy as u8;
             }
@@ -90,7 +93,7 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
         }
     }
 
-    map
+    (map, player_idx)
 }
 
 /// Create the initial shared game state, respecting optional environment overrides.
@@ -115,7 +118,7 @@ pub fn initialize_state() -> SharedState {
     let width = size;
     let height = size;
 
-    let map = generate_map(seed, width, height);
+    let (map, player_idx) = generate_map(seed, width, height);
 
     let initial_state = GameState {
         phase: AppPhase::StartScreen,
@@ -132,6 +135,7 @@ pub fn initialize_state() -> SharedState {
         width,
         height,
         seed,
+        player_idx,
     };
 
     Arc::new(Mutex::new(initial_state))
@@ -140,24 +144,18 @@ pub fn initialize_state() -> SharedState {
 /// Regenerate the map for an existing GameState with a new seed and size.
 /// Replace the current map with a new seeded map and resize the playfield.
 pub fn regenerate_map(state: &mut GameState, seed: u64, size: usize) {
-    let new_map = generate_map(seed, size, size);
+    let (new_map, new_player_idx) = generate_map(seed, size, size);
     state.map_matrix = new_map;
     state.width = size;
     state.height = size;
     state.seed = seed;
+    state.player_idx = new_player_idx;
 }
 
 /// Move the player by dx,dy if there is enough AP and no wall. Returns true if moved.
 /// Move the player by a delta if the destination is valid and AP is available.
 pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
-    let idx = state
-        .map_matrix
-        .iter()
-        .position(|&v| v == Tile::Player as u8);
-    if idx.is_none() {
-        return false;
-    }
-    let idx = idx.unwrap();
+    let idx = state.player_idx;
     let x = idx % state.width;
     let y = idx / state.width;
     let nx = x as isize + dx;
@@ -176,25 +174,18 @@ pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
     let target_tile = state.map_matrix[nidx];
     state.map_matrix[idx] = Tile::Empty as u8;
     state.map_matrix[nidx] = Tile::Player as u8;
+    state.player_idx = nidx;
     let _ = consume_tile_effect(state, target_tile);
     true
 }
 
 /// Fire into an adjacent tile, consuming AP and resolving any tile effect.
 pub fn fire_at_direction(state: &mut GameState, dx: isize, dy: isize) -> bool {
-    let idx = state
-        .map_matrix
-        .iter()
-        .position(|&v| v == Tile::Player as u8);
-    if idx.is_none() {
-        return false;
-    }
+    let idx = state.player_idx;
     if state.stats.ap < 2 {
         return false;
     }
     state.stats.ap = state.stats.ap.saturating_sub(2);
-
-    let idx = idx.unwrap();
     let mut cx = (idx % state.width) as isize;
     let mut cy = (idx / state.width) as isize;
 
@@ -280,21 +271,21 @@ mod tests {
 
     #[test]
     fn deterministic_map_same_seed() {
-        let a = generate_map(42, 8, 8);
-        let b = generate_map(42, 8, 8);
+        let (a, _) = generate_map(42, 8, 8);
+        let (b, _) = generate_map(42, 8, 8);
         assert_eq!(a, b);
     }
 
     #[test]
     fn different_seed_differs() {
-        let a = generate_map(1, 8, 8);
-        let b = generate_map(2, 8, 8);
+        let (a, _) = generate_map(1, 8, 8);
+        let (b, _) = generate_map(2, 8, 8);
         assert_ne!(a, b);
     }
 
     #[test]
     fn map_size_matches() {
-        let a = generate_map(7, 10, 6);
+        let (a, _) = generate_map(7, 10, 6);
         assert_eq!(a.len(), 60);
     }
 
@@ -315,6 +306,7 @@ mod tests {
             width: 1,
             height: 1,
             seed: 1,
+            player_idx: 0,
         };
         let applied = consume_tile_effect(&mut gs, Tile::Health as u8);
         gs.map_matrix[0] = Tile::Empty as u8;
@@ -340,6 +332,7 @@ mod tests {
             width: 3,
             height: 1,
             seed: 1,
+            player_idx: 0,
         };
         // try to move right into wall (should fail)
         assert!(!move_player(&mut gs, 1, 0));
@@ -378,6 +371,7 @@ mod fire_tests {
             width: 4,
             height: 1,
             seed: 1,
+            player_idx: 0,
         };
 
         // Fire right

@@ -67,7 +67,7 @@ pub fn start_ws_server(state: SharedState, addr: &str) {
     let state_clone = state.clone();
     let addr = addr.to_string();
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_multi_thread()
+        let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
