@@ -6,26 +6,30 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang=\"en\">
 <head>
 <meta charset=\"utf-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0\">
 <title>Grid Crawler Mobile</title>
 <style>
 body { background:#121212; color:#eee; font-family:system-ui, sans-serif; text-align:center; margin:0; padding:1rem; }
-button { margin:.25rem; padding:.75rem 1.1rem; font-size:1rem; border:none; border-radius:.5rem; background:#007acc; color:#fff; }
+button { margin:.25rem; padding:.75rem 1.1rem; font-size:1rem; border:none; border-radius:.5rem; background:#007acc; color:#fff; cursor:pointer; touch-action:manipulation; transition:background 0.2s, transform 0.1s; }
+button:hover { background:#005f9e; }
+button:active { transform:scale(0.95); background:#004a7c; }
+button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 #log { margin-top:1rem; font-family:monospace; white-space:pre-wrap; text-align:left; max-width:100%; }
 </style>
 </head>
 <body>
 <h1>Grid Crawler Remote</h1>
 <div>
-<button onclick=\"moveDir('up')\">Move ↑</button>
-<button onclick=\"moveDir('left')\">Move ←</button>
-<button onclick=\"moveDir('right')\">Move →</button>
-<button onclick=\"moveDir('down')\">Move ↓</button>
+<button onclick=\"moveDir('up')\" aria-label=\"Move Up\">Move ↑</button>
+<button onclick=\"moveDir('left')\" aria-label=\"Move Left\">Move ←</button>
+<button onclick=\"moveDir('right')\" aria-label=\"Move Right\">Move →</button>
+<button onclick=\"moveDir('down')\" aria-label=\"Move Down\">Move ↓</button>
 </div>
 <div>
-<button onclick=\"fireDir('up')\">Fire ↑</button>
-<button onclick=\"fireDir('left')\">Fire ←</button>
-<button onclick=\"fireDir('right')\">Fire →</button>
-<button onclick=\"fireDir('down')\">Fire ↓</button>
+<button onclick=\"fireDir('up')\" aria-label=\"Fire Up\">Fire ↑</button>
+<button onclick=\"fireDir('left')\" aria-label=\"Fire Left\">Fire ←</button>
+<button onclick=\"fireDir('right')\" aria-label=\"Fire Right\">Fire →</button>
+<button onclick=\"fireDir('down')\" aria-label=\"Fire Down\">Fire ↓</button>
 </div>
 <pre id=\"log\">Connecting…</pre>
 <script>
