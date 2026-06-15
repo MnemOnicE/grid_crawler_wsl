@@ -1,26 +1,26 @@
-mod state;
-mod serial_daemon;
 mod net;
+mod serial_daemon;
+mod state;
 
+use crossterm::{
+    event::{self, Event, KeyCode},
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
+use rand::random;
+use ratatui::{
+    Frame, Terminal,
+    backend::CrosstermBackend,
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Gauge, Paragraph},
+};
+use state::{AppPhase, GameState, initialize_state, move_player, regenerate_map, spawn_drops};
 use std::env;
 use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crossterm::{
-    event::{self, Event, KeyCode},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use ratatui::{
-    backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Alignment},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Gauge, Paragraph},
-    Frame, Terminal,
-};
-use rand::random;
-use state::{AppPhase, GameState, initialize_state, move_player, regenerate_map, spawn_drops};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -48,52 +48,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let mut lock = game_state.lock().unwrap();
 
-        terminal.draw(|f| {
-            match lock.phase {
-                AppPhase::StartScreen => draw_start_screen(f, &lock),
-                AppPhase::Playing => draw_combat_ui(f, &lock),
-                AppPhase::GameOver => draw_game_over(f),
-            }
+        terminal.draw(|f| match lock.phase {
+            AppPhase::StartScreen => draw_start_screen(f, &lock),
+            AppPhase::Playing => draw_combat_ui(f, &lock),
+            AppPhase::GameOver => draw_game_over(f),
         })?;
 
-        if event::poll(Duration::from_millis(16))? {
-            if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Esc { break; }
+        if event::poll(Duration::from_millis(16))?
+            && let Event::Key(key) = event::read()?
+        {
+            if key.code == KeyCode::Esc {
+                break;
+            }
 
-                match lock.phase {
-                    AppPhase::StartScreen => {
-                        if key.code == KeyCode::Enter { lock.phase = AppPhase::Playing; }
-                        if key.code == KeyCode::Char('g') { // randomize seed
-                            let new_seed = random::<u64>();
-                            let cur_w = lock.width;
-                            regenerate_map(&mut lock, new_seed, cur_w);
-                            lock.seed = new_seed;
-                        }
-                        if key.code == KeyCode::Char('s') { // change map size cycle
-                            let sizes = [8usize, 10, 12, 16];
-                            let cur = lock.width;
-                            let mut next = sizes[0];
-                            for &sz in &sizes {
-                                if sz > cur { next = sz; break; }
+            match lock.phase {
+                AppPhase::StartScreen => {
+                    if key.code == KeyCode::Enter {
+                        lock.phase = AppPhase::Playing;
+                    }
+                    if key.code == KeyCode::Char('g') {
+                        // randomize seed
+                        let new_seed = random::<u64>();
+                        let cur_w = lock.width;
+                        regenerate_map(&mut lock, new_seed, cur_w);
+                        lock.seed = new_seed;
+                    }
+                    if key.code == KeyCode::Char('s') {
+                        // change map size cycle
+                        let sizes = [8usize, 10, 12, 16];
+                        let cur = lock.width;
+                        let mut next = sizes[0];
+                        for &sz in &sizes {
+                            if sz > cur {
+                                next = sz;
+                                break;
                             }
-                            if next == cur { next = sizes[0]; }
-                            let new_seed = lock.seed.wrapping_add(1);
-                            regenerate_map(&mut lock, new_seed, next);
                         }
+                        if next == cur {
+                            next = sizes[0];
+                        }
+                        let new_seed = lock.seed.wrapping_add(1);
+                        regenerate_map(&mut lock, new_seed, next);
                     }
-                    AppPhase::Playing => {
-                        let _moved = match key.code {
-                            KeyCode::Up | KeyCode::Char('w') => move_player(&mut lock, 0, -1),
-                            KeyCode::Down | KeyCode::Char('s') => move_player(&mut lock, 0, 1),
-                            KeyCode::Left | KeyCode::Char('a') => move_player(&mut lock, -1, 0),
-                            KeyCode::Right | KeyCode::Char('d') => move_player(&mut lock, 1, 0),
-                            KeyCode::Char(' ') => { /* fire — not implemented */ false }
-                            KeyCode::Char('S') => { /* Overdrive */ false }
-                            _ => false,
-                        };
-                    }
-                    AppPhase::GameOver => {
-                        if key.code == KeyCode::Char('r') { lock.phase = AppPhase::StartScreen; }
+                }
+                AppPhase::Playing => {
+                    let _moved = match key.code {
+                        KeyCode::Up | KeyCode::Char('w') => move_player(&mut lock, 0, -1),
+                        KeyCode::Down | KeyCode::Char('s') => move_player(&mut lock, 0, 1),
+                        KeyCode::Left | KeyCode::Char('a') => move_player(&mut lock, -1, 0),
+                        KeyCode::Right | KeyCode::Char('d') => move_player(&mut lock, 1, 0),
+                        KeyCode::Char(' ') => {
+                            /* fire — not implemented */
+                            false
+                        }
+                        KeyCode::Char('O') => {
+                            /* Overdrive */
+                            false
+                        }
+                        _ => false,
+                    };
+                }
+                AppPhase::GameOver => {
+                    if key.code == KeyCode::Char('r') {
+                        lock.phase = AppPhase::StartScreen;
                     }
                 }
             }
@@ -123,12 +140,14 @@ fn print_help() {
 fn draw_start_screen(f: &mut Frame, state: &GameState) {
     let text = format!(
         "GRID CRAWLER: TACTICAL NODE\n\nSeed: {}  Size: {}x{}\n\nPress [ENTER] to Initiate Neural Link\nPress [G] Randomize Seed\nPress [S] Change Map Size\nPress [ESC] to Abort",
-        state.seed,
-        state.width,
-        state.height,
+        state.seed, state.width, state.height,
     );
     let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title(" SYSTEM BOOT "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" SYSTEM BOOT "),
+        )
         .alignment(Alignment::Center);
     f.render_widget(paragraph, f.area());
 }
@@ -137,14 +156,17 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([
-            Constraint::Length(10), // The 8x8 Grid
-            Constraint::Length(3),  // Controls Legend
-            Constraint::Length(3),  // HP
-            Constraint::Length(3),  // AR
-            Constraint::Length(3),  // AP
-            Constraint::Min(0),
-        ].as_ref())
+        .constraints(
+            [
+                Constraint::Length(10), // The 8x8 Grid
+                Constraint::Length(3),  // Controls Legend
+                Constraint::Length(3),  // HP
+                Constraint::Length(3),  // AR
+                Constraint::Length(3),  // AP
+                Constraint::Min(0),
+            ]
+            .as_ref(),
+        )
         .split(f.area());
 
     // --- The Battlefield Renderer (supports viewport for larger maps) ---
@@ -153,29 +175,33 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState) {
     let view_h = state.height.min(8);
     let view_w = state.width.min(16);
     // find player to center viewport
-    let player_idx = state.map_matrix.iter().position(|&v| v == 0x0A).unwrap_or(0);
+    let player_idx = state
+        .map_matrix
+        .iter()
+        .position(|&v| v == 0x0A)
+        .unwrap_or(0);
     let px = player_idx % state.width;
     let py = player_idx / state.width;
-    let mut start_y = if py >= view_h/2 { py - view_h/2 } else { 0 };
-    let mut start_x = if px >= view_w/2 { px - view_w/2 } else { 0 };
+    let mut start_y = py.saturating_sub(view_h / 2);
+    let mut start_x = px.saturating_sub(view_w / 2);
     if start_y + view_h > state.height {
         start_y = state.height.saturating_sub(view_h);
     }
     if start_x + view_w > state.width {
         start_x = state.width.saturating_sub(view_w);
     }
-    for row in start_y..(start_y+view_h) {
+    for row in start_y..(start_y + view_h) {
         let mut spans = Vec::new();
-        for col in start_x..(start_x+view_w) {
+        for col in start_x..(start_x + view_w) {
             let idx = row * state.width + col;
             let cell_byte = state.map_matrix.get(idx).copied().unwrap_or(0x00);
             let (glyph, color) = match cell_byte {
-                0x00 => ("··", Color::DarkGray),   // empty / mud
-                0x01 => ("██", Color::White),      // obstacle / cover
-                0x0A => ("⊙⊙", Color::Green),      // player tank
-                0x0B => ("✖✖", Color::Red),        // enemy tank
-                0x10 => ("◆◆", Color::Yellow),    // pickup / powerup
-                0x11 => ("░░", Color::Magenta),    // wreckage
+                0x00 => ("··", Color::DarkGray), // empty / mud
+                0x01 => ("██", Color::White),    // obstacle / cover
+                0x0A => ("⊙⊙", Color::Green),    // player tank
+                0x0B => ("✖✖", Color::Red),      // enemy tank
+                0x10 => ("◆◆", Color::Yellow),   // pickup / powerup
+                0x11 => ("░░", Color::Magenta),  // wreckage
                 _ => ("??", Color::Reset),
             };
             spans.push(Span::styled(glyph, Style::default().fg(color)));
@@ -184,35 +210,64 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState) {
     }
 
     let grid_widget = Paragraph::new(grid_lines)
-        .block(Block::default().borders(Borders::ALL).title(" BATTLEFIELD "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" BATTLEFIELD "),
+        )
         .alignment(Alignment::Center);
     f.render_widget(grid_widget, chunks[0]);
 
     // --- Controls Legend ---
-    let controls = " [↑/↓/←/→/WASD] Maneuver Tank | [SPACE] Fire Shell | [O] Overdrive | [ESC] Retreat ";
+    let controls =
+        " [↑/↓/←/→/WASD] Maneuver Tank | [SPACE] Fire Shell | [O] Overdrive | [ESC] Retreat ";
     let controls_widget = Paragraph::new(controls)
-        .block(Block::default().borders(Borders::ALL).title(" SYSTEM CONTROLS "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" SYSTEM CONTROLS "),
+        )
         .alignment(Alignment::Center)
         .style(Style::default().fg(Color::DarkGray));
     f.render_widget(controls_widget, chunks[1]);
 
     // --- The Gauges ---
     let health_gauge = Gauge::default()
-        .block(Block::default().title(" STRUCTURAL INTEGRITY (HP) ").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(" STRUCTURAL INTEGRITY (HP) ")
+                .borders(Borders::ALL),
+        )
         .gauge_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
         .percent(state.stats.health as u16);
     f.render_widget(health_gauge, chunks[2]);
 
     let armor_gauge = Gauge::default()
-        .block(Block::default().title(" DEFLECTIVE PLATING (ARMOR) ").borders(Borders::ALL))
-        .gauge_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .block(
+            Block::default()
+                .title(" DEFLECTIVE PLATING (ARMOR) ")
+                .borders(Borders::ALL),
+        )
+        .gauge_style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
         .percent(state.stats.armor as u16);
     f.render_widget(armor_gauge, chunks[3]);
 
     let ap_percent = (state.stats.ap as u16 * 100) / 12;
     let ap_gauge = Gauge::default()
-        .block(Block::default().title(format!(" ACTION POINTS: {}/12 ", state.stats.ap)).borders(Borders::ALL))
-        .gauge_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .block(
+            Block::default()
+                .title(format!(" ACTION POINTS: {}/12 ", state.stats.ap))
+                .borders(Borders::ALL),
+        )
+        .gauge_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
         .percent(ap_percent.min(100));
     f.render_widget(ap_gauge, chunks[4]);
 }
@@ -220,7 +275,11 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState) {
 fn draw_game_over(f: &mut Frame) {
     let text = "CRITICAL FAILURE: SIGNAL LOST\n\nPress [R] to Reboot Node\nPress [ESC] to Exit";
     let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title(" SYSTEM HALT "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" SYSTEM HALT "),
+        )
         .style(Style::default().fg(Color::Red))
         .alignment(Alignment::Center);
     f.render_widget(paragraph, f.area());
