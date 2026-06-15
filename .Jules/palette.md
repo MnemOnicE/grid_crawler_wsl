@@ -1,0 +1,3 @@
+## 2024-06-15 - Mobile Viewport and Tap Delay for HTML Controllers
+**Learning:** When serving simple HTML interfaces for game controllers via embedded strings, missing `<meta name="viewport">` severely degrades the experience as it scales out instead of filling the screen. Additionally, without `touch-action: manipulation;`, mobile browsers introduce a 300ms tap delay before registering clicks, which breaks real-time controller responsiveness. Adding `aria-label`s to textual arrow buttons also makes them instantly readable to screen readers.
+**Action:** Always verify `viewport` meta tags, use `touch-action: manipulation` for mobile UI buttons to eliminate tap delay, and attach explicit `aria-label`s when using ascii/unicode arrows as primary UI text.
