@@ -55,6 +55,7 @@ pub fn init_hardware_bridge(state: SharedState, port_name: &str) -> Box<dyn Writ
                     let mut lock = sim_state.lock().unwrap();
                     // regen small AP over time
                     lock.stats.ap = (lock.stats.ap + 1).min(12);
+                    lock.feedback = "Hardware mock: Regenerated 1 AP".to_string();
                 }
             });
             Box::new(sink)

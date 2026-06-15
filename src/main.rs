@@ -1,11 +1,11 @@
-mod net;
-mod serial_daemon;
-mod state;
-
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
+use grid_crawler_wsl::state::{
+    AppPhase, GameState, fire_at_direction, initialize_state, move_player, regenerate_map,
+    spawn_drops,
 };
 use rand::random;
 use ratatui::{
@@ -15,10 +15,6 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, Paragraph},
-};
-use state::{
-    AppPhase, GameState, fire_at_direction, initialize_state, move_player, regenerate_map,
-    spawn_drops,
 };
 use std::env;
 use std::io;
@@ -37,8 +33,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let game_state = initialize_state();
-    let _tx_port = serial_daemon::init_hardware_bridge(Arc::clone(&game_state), "/dev/ttyACM0");
-    net::start_ws_server(Arc::clone(&game_state), "127.0.0.1:9001");
+    let _tx_port = grid_crawler_wsl::serial_daemon::init_hardware_bridge(
+        Arc::clone(&game_state),
+        "/dev/ttyACM0",
+    );
+    grid_crawler_wsl::net::start_ws_server(Arc::clone(&game_state), "127.0.0.1:9001");
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -195,6 +194,7 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState, aiming: bool) {
                 Constraint::Length(3),  // HP
                 Constraint::Length(3),  // AR
                 Constraint::Length(3),  // AP
+                Constraint::Length(3),  // SYSTEM LOG
                 Constraint::Min(0),
             ]
             .as_ref(),
@@ -301,6 +301,13 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState, aiming: bool) {
         )
         .percent(ap_percent.min(100));
     f.render_widget(ap_gauge, chunks[4]);
+
+    // --- System Log (Feedback) ---
+    let log_widget = Paragraph::new(state.feedback.clone())
+        .block(Block::default().borders(Borders::ALL).title(" SYSTEM LOG "))
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(Color::LightGreen));
+    f.render_widget(log_widget, chunks[5]);
 }
 
 fn draw_game_over(f: &mut Frame) {
