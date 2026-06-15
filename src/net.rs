@@ -116,10 +116,10 @@ async fn client_connection(ws: warp::ws::WebSocket, state: SharedState) {
                     ap: lock.stats.ap,
                 }
             };
-            if let Ok(s) = serde_json::to_string(&snap) {
-                if tx.send(warp::ws::Message::text(s)).await.is_err() {
-                    break;
-                }
+            if let Ok(s) = serde_json::to_string(&snap)
+                && tx.send(warp::ws::Message::text(s)).await.is_err()
+            {
+                break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         }

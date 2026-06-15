@@ -31,7 +31,10 @@ pub fn init_hardware_bridge(state: SharedState, port_name: &str) -> Box<dyn Writ
                             lock.stats.item_charges = payload[6];
                             let map_len = lock.map_matrix.len();
                             let end = (7 + map_len).min(payload.len());
-                            lock.map_matrix.copy_from_slice(&payload[7..end]);
+                            let count = end - 7;
+                            if count > 0 {
+                                lock.map_matrix[..count].copy_from_slice(&payload[7..end]);
+                            }
                             if lock.stats.health == 0 && lock.phase == AppPhase::Playing {
                                 lock.phase = AppPhase::GameOver;
                             }

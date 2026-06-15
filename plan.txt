@@ -1,6 +1,0 @@
-1. I found unused `apply_pickup` in `src/state.rs`. The code uses `consume_tile_effect` for pickups when moving onto them, which makes `apply_pickup` dead code. So I can remove `apply_pickup` from `src/state.rs`.
-2. I found some warnings from `cargo clippy`. I should fix the warnings:
-   - In `src/state.rs`, the `for i in 0..size` loops over `map` can be replaced with iterators. Or I can keep the loop and use `map[i] = ...`. `clippy` suggests `for item in map.iter_mut().take(size)`. I can rewrite this.
-   - In `src/state.rs`, `rng.gen_range(0..size) as usize` casts a `usize` to `usize`. I can fix this by removing `as usize`.
-   - In `src/serial_daemon.rs`, `src/net.rs`, `src/main.rs`, I can collapse nested `if` statements as suggested by clippy.
-   - In `src/main.rs`, there are manual arithmetic checks (`if px >= view_w/2 { px - view_w/2 } else { 0 }`) which can be replaced by `px.saturating_sub(view_w / 2)`.

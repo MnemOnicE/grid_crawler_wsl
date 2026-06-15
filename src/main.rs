@@ -101,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             /* fire — not implemented */
                             false
                         }
-                        KeyCode::Char('S') => {
+                        KeyCode::Char('O') => {
                             /* Overdrive */
                             false
                         }

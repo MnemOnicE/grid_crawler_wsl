@@ -51,14 +51,14 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
     let mut map = vec![Tile::Empty as u8; size];
 
     // Place walls randomly (~12% of tiles)
-    for item in &mut map {
+    for item in map.iter_mut().take(size) {
         if rng.gen_bool(0.12) {
             *item = Tile::Wall as u8;
         }
     }
 
     // Place resource nodes (~3%) and pickups (~4%)
-    for item in &mut map {
+    for item in map.iter_mut().take(size) {
         if *item == Tile::Empty as u8 {
             let roll: f64 = rng.gen_range(0.0..1.0);
             if roll < 0.03 {
@@ -76,15 +76,17 @@ fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
 
     // Ensure at least one player and one enemy placed
     let mut placed = 0;
-    while placed < 2 {
-        let idx = rng.gen_range(0..size);
-        if map[idx] == Tile::Empty as u8 {
+    for item in map.iter_mut().take(size) {
+        if *item == Tile::Empty as u8 {
             if placed == 0 {
-                map[idx] = Tile::Player as u8;
-            } else {
-                map[idx] = Tile::Enemy as u8;
+                *item = Tile::Player as u8;
+            } else if placed == 1 {
+                *item = Tile::Enemy as u8;
             }
             placed += 1;
+            if placed >= 2 {
+                break;
+            }
         }
     }
 
@@ -223,7 +225,7 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
             true
         }
         x if x == Tile::Resource as u8 => {
-            state.stats.ap = (state.stats.ap + 3).min(12);
+            state.stats.ap = state.stats.ap.saturating_add(3).min(12);
             true
         }
         x if x == Tile::Mine as u8 => {
