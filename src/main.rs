@@ -207,11 +207,7 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState, aiming: bool) {
     let view_h = state.height.min(8);
     let view_w = state.width.min(16);
     // find player to center viewport
-    let player_idx = state
-        .map_matrix
-        .iter()
-        .position(|&v| v == 0x0A)
-        .unwrap_or(0);
+    let player_idx = state.player_idx;
     let px = player_idx % state.width;
     let py = player_idx / state.width;
     let mut start_y = py.saturating_sub(view_h / 2);
