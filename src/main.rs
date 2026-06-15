@@ -1,9 +1,10 @@
 mod state;
 mod serial_daemon;
+mod net;
 
 use std::io;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -17,11 +18,13 @@ use ratatui::{
     widgets::{Block, Borders, Gauge, Paragraph},
     Frame, Terminal,
 };
-use state::{AppPhase, GameState, initialize_state};
+use rand::random;
+use state::{AppPhase, GameState, initialize_state, move_player, regenerate_map, spawn_drops};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let game_state = initialize_state();
-    let mut tx_port = serial_daemon::init_hardware_bridge(Arc::clone(&game_state), "/dev/ttyACM0");
+    let _tx_port = serial_daemon::init_hardware_bridge(Arc::clone(&game_state), "/dev/ttyACM0");
+    net::start_ws_server(Arc::clone(&game_state), "127.0.0.1:9001");
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -29,15 +32,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    let mut last_spawn = Instant::now();
+
     loop {
         let mut lock = game_state.lock().unwrap();
 
         terminal.draw(|f| {
             match lock.phase {
-                AppPhase::StartScreen => draw_start_screen(f),
+                AppPhase::StartScreen => draw_start_screen(f, &lock),
                 AppPhase::Playing => draw_combat_ui(f, &lock),
                 AppPhase::GameOver => draw_game_over(f),
-                AppPhase::Scoreboard => {}
             }
         })?;
 
@@ -48,24 +52,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match lock.phase {
                     AppPhase::StartScreen => {
                         if key.code == KeyCode::Enter { lock.phase = AppPhase::Playing; }
+                        if key.code == KeyCode::Char('g') { // randomize seed
+                            let new_seed = random::<u64>();
+                            let cur_w = lock.width;
+                            regenerate_map(&mut lock, new_seed, cur_w);
+                            lock.seed = new_seed;
+                        }
+                        if key.code == KeyCode::Char('s') { // change map size cycle
+                            let sizes = [8usize, 10, 12, 16];
+                            let cur = lock.width;
+                            let mut next = sizes[0];
+                            for &sz in &sizes {
+                                if sz > cur { next = sz; break; }
+                            }
+                            if next == cur { next = sizes[0]; }
+                            let new_seed = lock.seed.wrapping_add(1);
+                            regenerate_map(&mut lock, new_seed, next);
+                        }
                     }
                     AppPhase::Playing => {
-                        match key.code {
-                            KeyCode::Up => { let _ = tx_port.write_all(&[0xBB, 0x01, 0x00]); }
-                            KeyCode::Down => { let _ = tx_port.write_all(&[0xBB, 0x02, 0x00]); }
-                            KeyCode::Left => { let _ = tx_port.write_all(&[0xBB, 0x05, 0x00]); }
-                            KeyCode::Right => { let _ = tx_port.write_all(&[0xBB, 0x06, 0x00]); }
-                            KeyCode::Char(' ') => { let _ = tx_port.write_all(&[0xBB, 0x03, 0x00]); }
-                            KeyCode::Char('s') => { let _ = tx_port.write_all(&[0xBB, 0x04, 0x00]); }
-                            _ => {}
-                        }
+                        let _moved = match key.code {
+                            KeyCode::Up | KeyCode::Char('w') => move_player(&mut lock, 0, -1),
+                            KeyCode::Down | KeyCode::Char('s') => move_player(&mut lock, 0, 1),
+                            KeyCode::Left | KeyCode::Char('a') => move_player(&mut lock, -1, 0),
+                            KeyCode::Right | KeyCode::Char('d') => move_player(&mut lock, 1, 0),
+                            KeyCode::Char(' ') => { /* fire — not implemented */ false }
+                            KeyCode::Char('S') => { /* Overdrive */ false }
+                            _ => false,
+                        };
                     }
                     AppPhase::GameOver => {
                         if key.code == KeyCode::Char('r') { lock.phase = AppPhase::StartScreen; }
                     }
-                    _ => {}
                 }
             }
+        }
+
+        if lock.phase == AppPhase::Playing && last_spawn.elapsed() >= Duration::from_secs(5) {
+            spawn_drops(&mut lock, random::<u64>());
+            last_spawn = Instant::now();
         }
     }
 
@@ -75,8 +100,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn draw_start_screen(f: &mut Frame) {
-    let text = "GRID CRAWLER: TACTICAL NODE\n\nPress [ENTER] to Initiate Neural Link\nPress [ESC] to Abort";
+fn draw_start_screen(f: &mut Frame, state: &GameState) {
+    let text = format!(
+        "GRID CRAWLER: TACTICAL NODE\n\nSeed: {}  Size: {}x{}\n\nPress [ENTER] to Initiate Neural Link\nPress [G] Randomize Seed\nPress [S] Change Map Size\nPress [ESC] to Abort",
+        state.seed,
+        state.width,
+        state.height,
+    );
     let paragraph = Paragraph::new(text)
         .block(Block::default().borders(Borders::ALL).title(" SYSTEM BOOT "))
         .alignment(Alignment::Center);
@@ -97,19 +127,35 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState) {
         ].as_ref())
         .split(f.area());
 
-    // --- The Matrix Translation Engine ---
+    // --- The Battlefield Renderer (supports viewport for larger maps) ---
     let mut grid_lines = Vec::new();
-    for row in 0..8 {
+    // viewport dimensions
+    let view_h = state.height.min(8);
+    let view_w = state.width.min(16);
+    // find player to center viewport
+    let player_idx = state.map_matrix.iter().position(|&v| v == 0x0A).unwrap_or(0);
+    let px = player_idx % state.width;
+    let py = player_idx / state.width;
+    let mut start_y = if py >= view_h/2 { py - view_h/2 } else { 0 };
+    let mut start_x = if px >= view_w/2 { px - view_w/2 } else { 0 };
+    if start_y + view_h > state.height {
+        start_y = state.height.saturating_sub(view_h);
+    }
+    if start_x + view_w > state.width {
+        start_x = state.width.saturating_sub(view_w);
+    }
+    for row in start_y..(start_y+view_h) {
         let mut spans = Vec::new();
-        for col in 0..8 {
-            let cell_byte = state.map_matrix[row * 8 + col];
+        for col in start_x..(start_x+view_w) {
+            let idx = row * state.width + col;
+            let cell_byte = state.map_matrix.get(idx).copied().unwrap_or(0x00);
             let (glyph, color) = match cell_byte {
-                0x00 => ("░░", Color::DarkGray),
-                0x01 => ("██", Color::White),
-                0x0A => ("▲▲", Color::Green),
-                0x0B => ("▼▼", Color::Red),
-                0x10 => ("◆◆", Color::Yellow),
-                0x11 => ("xx", Color::Magenta),
+                0x00 => ("··", Color::DarkGray),   // empty / mud
+                0x01 => ("██", Color::White),      // obstacle / cover
+                0x0A => ("⊙⊙", Color::Green),      // player tank
+                0x0B => ("✖✖", Color::Red),        // enemy tank
+                0x10 => ("◆◆", Color::Yellow),    // pickup / powerup
+                0x11 => ("░░", Color::Magenta),    // wreckage
                 _ => ("??", Color::Reset),
             };
             spans.push(Span::styled(glyph, Style::default().fg(color)));
@@ -118,12 +164,12 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState) {
     }
 
     let grid_widget = Paragraph::new(grid_lines)
-        .block(Block::default().borders(Borders::ALL).title(" TACTICAL MATRIX "))
+        .block(Block::default().borders(Borders::ALL).title(" BATTLEFIELD "))
         .alignment(Alignment::Center);
     f.render_widget(grid_widget, chunks[0]);
 
     // --- Controls Legend ---
-    let controls = " [↑/↓/←/→] Move | [SPACE] Fire Laser (2AP) | [S] Supercharge (3AP) | [ESC] Abort ";
+    let controls = " [↑/↓/←/→/WASD] Maneuver Tank | [SPACE] Fire Shell | [O] Overdrive | [ESC] Retreat ";
     let controls_widget = Paragraph::new(controls)
         .block(Block::default().borders(Borders::ALL).title(" SYSTEM CONTROLS "))
         .alignment(Alignment::Center)
