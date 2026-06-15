@@ -15,9 +15,9 @@
 - [x] Support dynamic seed and map size selection
 - [x] Add mobile WebSocket interface and browser client
 - [x] Add firing actions and weapon mechanics
-- [ ] Implement mock serial fallback for hardware development
-- [ ] Improve in-game HUD and action feedback
-- [ ] Add integration tests for movement, action points, and pickups
+- [x] Implement mock serial fallback for hardware development
+- [x] Improve in-game HUD and action feedback
+- [x] Add integration tests for movement, action points, and pickups
 
 ## Medium-term goals
 

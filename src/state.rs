@@ -28,6 +28,7 @@ pub struct GameState {
     pub height: usize,
     pub seed: u64,
     pub player_idx: usize,
+    pub feedback: String,
 }
 
 pub type SharedState = Arc<Mutex<GameState>>;
@@ -136,6 +137,7 @@ pub fn initialize_state() -> SharedState {
         height,
         seed,
         player_idx,
+        feedback: "Neural link established. Awaiting input.".to_string(),
     };
 
     Arc::new(Mutex::new(initial_state))
@@ -150,6 +152,7 @@ pub fn regenerate_map(state: &mut GameState, seed: u64, size: usize) {
     state.height = size;
     state.seed = seed;
     state.player_idx = new_player_idx;
+    state.feedback = "Map regenerated.".to_string();
 }
 
 /// Move the player by dx,dy if there is enough AP and no wall. Returns true if moved.
@@ -161,13 +164,16 @@ pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
     let nx = x as isize + dx;
     let ny = y as isize + dy;
     if nx < 0 || ny < 0 || nx >= state.width as isize || ny >= state.height as isize {
+        state.feedback = "Cannot move outside map boundaries.".to_string();
         return false;
     }
     let nidx = (ny as usize) * state.width + (nx as usize);
     if state.map_matrix[nidx] == Tile::Wall as u8 || state.map_matrix[nidx] == Tile::Enemy as u8 {
+        state.feedback = "Path blocked.".to_string();
         return false;
     }
     if state.stats.ap == 0 {
+        state.feedback = "Not enough AP to move.".to_string();
         return false;
     }
     state.stats.ap = state.stats.ap.saturating_sub(1);
@@ -176,6 +182,9 @@ pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
     state.map_matrix[nidx] = Tile::Player as u8;
     state.player_idx = nidx;
     let _ = consume_tile_effect(state, target_tile);
+    if target_tile == Tile::Empty as u8 {
+        state.feedback = "Moved successfully.".to_string();
+    }
     true
 }
 
@@ -183,6 +192,7 @@ pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
 pub fn fire_at_direction(state: &mut GameState, dx: isize, dy: isize) -> bool {
     let idx = state.player_idx;
     if state.stats.ap < 2 {
+        state.feedback = "Not enough AP to fire (needs 2).".to_string();
         return false;
     }
     state.stats.ap = state.stats.ap.saturating_sub(2);
@@ -202,12 +212,15 @@ pub fn fire_at_direction(state: &mut GameState, dx: isize, dy: isize) -> bool {
         }
         if target == Tile::Enemy as u8 {
             state.map_matrix[nidx] = Tile::Wreck as u8;
+            state.feedback = "Target destroyed!".to_string();
             return true;
         } else if target != Tile::Empty as u8 {
             state.map_matrix[nidx] = Tile::Empty as u8;
+            state.feedback = "Obstacle cleared.".to_string();
             return true;
         }
     }
+    state.feedback = "Missed.".to_string();
     false
 }
 
@@ -215,23 +228,28 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
     match tile {
         x if x == Tile::Health as u8 => {
             state.stats.health = state.stats.health.saturating_add(20).min(100);
+            state.feedback = "Picked up Health: +20 HP".to_string();
             true
         }
         x if x == Tile::Smoke as u8 => {
             state.stats.active_item = 1;
             state.stats.item_charges = 1;
+            state.feedback = "Acquired Smoke charge.".to_string();
             true
         }
         x if x == Tile::Resource as u8 => {
             state.stats.ap = state.stats.ap.saturating_add(3).min(12);
+            state.feedback = "Acquired Resource: +3 AP".to_string();
             true
         }
         x if x == Tile::Mine as u8 => {
             state.stats.health = state.stats.health.saturating_sub(15);
+            state.feedback = "Hit a Mine! -15 HP".to_string();
             true
         }
         x if x == Tile::Wreck as u8 => {
             state.stats.armor = state.stats.armor.saturating_sub(10);
+            state.feedback = "Scraped wreckage: -10 Armor".to_string();
             true
         }
         _ => false,
@@ -307,6 +325,7 @@ mod tests {
             height: 1,
             seed: 1,
             player_idx: 0,
+            feedback: "".to_string(),
         };
         let applied = consume_tile_effect(&mut gs, Tile::Health as u8);
         gs.map_matrix[0] = Tile::Empty as u8;
@@ -333,6 +352,7 @@ mod tests {
             height: 1,
             seed: 1,
             player_idx: 0,
+            feedback: "".to_string(),
         };
         // try to move right into wall (should fail)
         assert!(!move_player(&mut gs, 1, 0));
@@ -372,6 +392,7 @@ mod fire_tests {
             height: 1,
             seed: 1,
             player_idx: 0,
+            feedback: "".to_string(),
         };
 
         // Fire right
