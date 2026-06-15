@@ -9,7 +9,7 @@ pub fn init_hardware_bridge(state: SharedState, port_name: &str) -> Box<dyn Writ
         .timeout(Duration::from_millis(10))
         .open()
     {
-        Ok(mut tx_port) => {
+        Ok(tx_port) => {
             // try clone for RX monitoring if possible
             if let Ok(mut rx_port) = tx_port.try_clone() {
                 std::thread::spawn(move || {

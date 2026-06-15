@@ -2,6 +2,7 @@ mod state;
 mod serial_daemon;
 mod net;
 
+use std::env;
 use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -22,6 +23,16 @@ use rand::random;
 use state::{AppPhase, GameState, initialize_state, move_player, regenerate_map, spawn_drops};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = env::args().collect();
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_help();
+        return Ok(());
+    }
+    if args.iter().any(|arg| arg == "--version" || arg == "-v") {
+        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     let game_state = initialize_state();
     let _tx_port = serial_daemon::init_hardware_bridge(Arc::clone(&game_state), "/dev/ttyACM0");
     net::start_ws_server(Arc::clone(&game_state), "127.0.0.1:9001");
@@ -98,6 +109,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
     Ok(())
+}
+
+fn print_help() {
+    println!("Grid Crawler WSL {}\n", env!("CARGO_PKG_VERSION"));
+    println!("Usage: cargo run --release -- [OPTIONS]\n");
+    println!("Options:");
+    println!("  -h, --help       Print this help message");
+    println!("  -v, --version    Print the current version");
+    println!("\nRun the binary and open the mobile client at http://127.0.0.1:9001/");
 }
 
 fn draw_start_screen(f: &mut Frame, state: &GameState) {

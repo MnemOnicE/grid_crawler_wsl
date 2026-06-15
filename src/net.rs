@@ -57,6 +57,7 @@ struct PublicState {
     ap: u8,
 }
 
+/// Start a lightweight WebSocket server for the mobile client in a background thread.
 pub fn start_ws_server(state: SharedState, addr: &str) {
     // run tokio runtime in background thread
     let state_clone = state.clone();

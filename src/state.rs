@@ -44,6 +44,7 @@ pub enum Tile {
     Wreck = 0x11,
 }
 
+/// Generate a deterministic tile map from a seed and dimensions.
 fn generate_map(seed: u64, width: usize, height: usize) -> Vec<u8> {
     let mut rng = StdRng::seed_from_u64(seed);
     let size = width * height;
@@ -117,6 +118,7 @@ pub fn apply_pickup(state: &mut GameState, idx: usize) -> bool {
     applied
 }
 
+/// Create the initial shared game state, respecting optional environment overrides.
 pub fn initialize_state() -> SharedState {
     // Allow overriding seed and size via env vars for replayability
     let seed = env::var("GRID_SEED").ok().and_then(|s| s.parse::<u64>().ok())
@@ -153,6 +155,7 @@ pub fn initialize_state() -> SharedState {
 }
 
 /// Regenerate the map for an existing GameState with a new seed and size.
+/// Replace the current map with a new seeded map and resize the playfield.
 pub fn regenerate_map(state: &mut GameState, seed: u64, size: usize) {
     let new_map = generate_map(seed, size, size);
     state.map_matrix = new_map;
@@ -162,6 +165,7 @@ pub fn regenerate_map(state: &mut GameState, seed: u64, size: usize) {
 }
 
 /// Move the player by dx,dy if there is enough AP and no wall. Returns true if moved.
+/// Move the player by a delta if the destination is valid and AP is available.
 pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
     let idx = state.map_matrix.iter().position(|&v| v == Tile::Player as u8);
     if idx.is_none() { return false; }
@@ -182,6 +186,7 @@ pub fn move_player(state: &mut GameState, dx: isize, dy: isize) -> bool {
     true
 }
 
+/// Fire into an adjacent tile, consuming AP and resolving any tile effect.
 pub fn fire_at_direction(state: &mut GameState, dx: isize, dy: isize) -> bool {
     let idx = state.map_matrix.iter().position(|&v| v == Tile::Player as u8);
     if idx.is_none() { return false; }
@@ -231,6 +236,7 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
 }
 
 /// Spawn occasional drops into empty tiles; simple probability per call.
+/// Spawn new pickups or hazards into empty tiles using a seeded RNG.
 pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
     use rand::rngs::StdRng;
     use rand::SeedableRng;

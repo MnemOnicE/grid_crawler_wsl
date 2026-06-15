@@ -6,7 +6,34 @@
 
 A terminal-based tank crawler with seeded maze generation, pickups, WebSocket mobile control, and tactical grid combat.
 
-![Gameplay Demo](docs/mock-demo.gif)
+## Demo
+
+Terminal view (8x8 grid with tactical display):
+```
+┌─ BATTLEFIELD ─────────────────────┐
+│ ··  ··  ··  ··  ██  ··  ··  ··    │
+│ ··  ··  ██  ··  ··  ··  ⊙⊙  ··    │
+│ ··  ··  ··  ··  ··  ··  ··  ··    │
+│ ██  ··  ··  ··  ··  ··  ··  ··    │
+│ ··  ··  ··  ··  ··  ··  ··  ··    │
+│ ··  ◆◆  ··  ··  ··  ··  ··  ··    │
+│ ··  ··  ··  ··  ··  ··  ··  ··    │
+│ ··  ··  ··  ··  ··  ··  ··  ✖✖    │
+└────────────────────────────────────┘
+
+Legend:
+  ⊙⊙ = Player tank
+  ✖✖ = Enemy
+  ◆◆ = Pickup
+  ██ = Wall/cover
+  ░░ = Wreckage
+  ·· = Empty space
+```
+
+Mobile client (browser at `http://127.0.0.1:9001/`):
+- On-screen directional buttons for movement and firing
+- Real-time map updates via WebSocket
+- AP, HP, and armor gauges
 
 ## Overview
 
