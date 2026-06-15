@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "Debug executable 'grid_crawler_wsl'",
+            "type": "lldb",
+            "request": "launch",
+            "terminal": "integrated", 
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=grid_crawler_wsl"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'grid_crawler_wsl'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=grid_crawler_wsl"
+                ]
+            }
+        }
+    ]
+}
