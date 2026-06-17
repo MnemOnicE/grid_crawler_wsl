@@ -52,10 +52,10 @@ function fireDir(dir) { sendCommand('fire', dir); }
 </html>"#;
 
 #[derive(serde::Serialize)]
-struct PublicState<'a> {
+struct PublicState {
     width: usize,
     height: usize,
-    map: &'a [u8],
+    map: Vec<u8>,
     health: u8,
     armor: u8,
     ap: u8,
@@ -109,19 +109,18 @@ async fn client_connection(ws: warp::ws::WebSocket, state: SharedState) {
     let send_task = tokio::spawn(async move {
         loop {
             // Serialize while holding the lock to avoid cloning the map matrix
-            let json_res = {
+            let snap = {
                 let lock = state_for_send.lock().unwrap();
-                let snap = PublicState {
+                PublicState {
                     width: lock.width,
                     height: lock.height,
-                    map: &lock.map_matrix,
+                    map: lock.map_matrix.clone(),
                     health: lock.stats.health,
                     armor: lock.stats.armor,
                     ap: lock.stats.ap,
-                };
-                serde_json::to_string(&snap)
+                }
             };
-            if let Ok(s) = json_res
+            if let Ok(s) = serde_json::to_string(&snap)
                 && tx.send(warp::ws::Message::text(s)).await.is_err()
             {
                 break;
