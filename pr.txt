@@ -1,0 +1,6 @@
+⚡ Bolt: Optimize WebSocket State Serialization
+
+💡 What: Changed the `PublicState` struct to use a slice `&[u8]` instead of `Vec<u8>` for the `map`, and perform the `serde_json::to_string` serialization while holding the `GameState` mutex lock.
+🎯 Why: The WebSocket server sends a snapshot of the game state every 250ms to connected clients. Previously, it cloned the entire `map_matrix` vector to create a `PublicState` object.
+📊 Impact: Avoids allocating and copying the grid memory array 4 times per second per client connection.
+🔬 Measurement: Verify tests run using `cargo test` and use `cargo run` to confirm WebSocket connectivity is preserved.
