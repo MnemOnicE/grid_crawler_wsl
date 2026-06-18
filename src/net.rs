@@ -82,9 +82,9 @@ pub fn start_ws_server(state: SharedState, addr: &str) {
 
             let index_route = warp::path::end().map(|| warp::reply::html(INDEX_HTML));
 
-            let routes = index_route
-                .or(ws_route)
-                .with(warp::cors().allow_any_origin());
+            let routes = index_route.or(ws_route).with(
+                warp::cors().allow_origins(vec!["http://127.0.0.1:9001", "http://localhost:9001"]),
+            );
 
             warp::serve(routes)
                 .run(addr.parse::<std::net::SocketAddr>().unwrap())

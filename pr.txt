@@ -1,6 +1,5 @@
-⚡ Bolt: Optimize WebSocket State Serialization
+🔒 Fix permissive CORS policy
 
-💡 What: Changed the `PublicState` struct to use a slice `&[u8]` instead of `Vec<u8>` for the `map`, and perform the `serde_json::to_string` serialization while holding the `GameState` mutex lock.
-🎯 Why: The WebSocket server sends a snapshot of the game state every 250ms to connected clients. Previously, it cloned the entire `map_matrix` vector to create a `PublicState` object.
-📊 Impact: Avoids allocating and copying the grid memory array 4 times per second per client connection.
-🔬 Measurement: Verify tests run using `cargo test` and use `cargo run` to confirm WebSocket connectivity is preserved.
+🎯 **What:** The application used `warp::cors().allow_any_origin()`, which allowed any origin to access the API.
+⚠️ **Risk:** Cross-Origin Resource Sharing (CORS) misconfigurations can lead to unauthorized access to the API from malicious websites.
+🛡️ **Solution:** Replaced `warp::cors().allow_any_origin()` with explicit allowed origins (`http://127.0.0.1:9001` and `http://localhost:9001`).
