@@ -5,7 +5,7 @@ use crossterm::{
 };
 use grid_crawler_wsl::state::{
     AppPhase, GameState, fire_at_direction, initialize_state, move_player, regenerate_map,
-    spawn_drops,
+    spawn_drops, toggle_overdrive,
 };
 use rand::random;
 use ratatui::{
@@ -132,10 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             aiming = !aiming;
                             false
                         }
-                        KeyCode::Char('O') => {
-                            /* Overdrive */
-                            false
-                        }
+                        KeyCode::Char('o') | KeyCode::Char('O') => toggle_overdrive(&mut lock),
                         _ => false,
                     };
                 }
