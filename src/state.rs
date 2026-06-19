@@ -256,6 +256,18 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
     }
 }
 
+const SPAWN_PROB_HEALTH: u32 = 8;
+const SPAWN_PROB_MINE: u32 = 7;
+const SPAWN_PROB_RESOURCE: u32 = 13;
+const SPAWN_PROB_SMOKE: u32 = 10;
+const SPAWN_PROB_WRECK: u32 = 5;
+
+const SPAWN_THRESHOLD_HEALTH: u32 = SPAWN_PROB_HEALTH;
+const SPAWN_THRESHOLD_MINE: u32 = SPAWN_THRESHOLD_HEALTH + SPAWN_PROB_MINE;
+const SPAWN_THRESHOLD_RESOURCE: u32 = SPAWN_THRESHOLD_MINE + SPAWN_PROB_RESOURCE;
+const SPAWN_THRESHOLD_SMOKE: u32 = SPAWN_THRESHOLD_RESOURCE + SPAWN_PROB_SMOKE;
+const SPAWN_THRESHOLD_WRECK: u32 = SPAWN_THRESHOLD_SMOKE + SPAWN_PROB_WRECK;
+
 /// Spawn occasional drops into empty tiles; simple probability per call.
 /// Spawn new pickups or hazards into empty tiles using a seeded RNG.
 pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
@@ -268,15 +280,15 @@ pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
         let idx = rng.gen_range(0..size);
         if state.map_matrix[idx] == Tile::Empty as u8 {
             let pick = rng.gen_range(0..100);
-            if pick < 8 {
+            if pick < SPAWN_THRESHOLD_HEALTH {
                 state.map_matrix[idx] = Tile::Health as u8;
-            } else if pick < 15 {
+            } else if pick < SPAWN_THRESHOLD_MINE {
                 state.map_matrix[idx] = Tile::Mine as u8;
-            } else if pick < 28 {
+            } else if pick < SPAWN_THRESHOLD_RESOURCE {
                 state.map_matrix[idx] = Tile::Resource as u8;
-            } else if pick < 38 {
+            } else if pick < SPAWN_THRESHOLD_SMOKE {
                 state.map_matrix[idx] = Tile::Smoke as u8;
-            } else if pick < 43 {
+            } else if pick < SPAWN_THRESHOLD_WRECK {
                 state.map_matrix[idx] = Tile::Wreck as u8;
             }
         }
