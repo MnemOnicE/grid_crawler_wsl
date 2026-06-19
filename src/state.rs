@@ -278,7 +278,7 @@ pub fn toggle_overdrive(state: &mut GameState) -> bool {
     } else {
         state.feedback = "Overdrive disengaged.".to_string();
     }
-    true
+    false
 }
 
 pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
