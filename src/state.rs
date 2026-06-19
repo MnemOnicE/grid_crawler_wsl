@@ -256,11 +256,17 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
     }
 }
 
-const SPAWN_THRESHOLD_HEALTH: u32 = 8;
-const SPAWN_THRESHOLD_MINE: u32 = 15;
-const SPAWN_THRESHOLD_RESOURCE: u32 = 28;
-const SPAWN_THRESHOLD_SMOKE: u32 = 38;
-const SPAWN_THRESHOLD_WRECK: u32 = 43;
+const SPAWN_PROB_HEALTH: u32 = 8;
+const SPAWN_PROB_MINE: u32 = 7;
+const SPAWN_PROB_RESOURCE: u32 = 13;
+const SPAWN_PROB_SMOKE: u32 = 10;
+const SPAWN_PROB_WRECK: u32 = 5;
+
+const SPAWN_THRESHOLD_HEALTH: u32 = SPAWN_PROB_HEALTH;
+const SPAWN_THRESHOLD_MINE: u32 = SPAWN_THRESHOLD_HEALTH + SPAWN_PROB_MINE;
+const SPAWN_THRESHOLD_RESOURCE: u32 = SPAWN_THRESHOLD_MINE + SPAWN_PROB_RESOURCE;
+const SPAWN_THRESHOLD_SMOKE: u32 = SPAWN_THRESHOLD_RESOURCE + SPAWN_PROB_SMOKE;
+const SPAWN_THRESHOLD_WRECK: u32 = SPAWN_THRESHOLD_SMOKE + SPAWN_PROB_WRECK;
 
 /// Spawn occasional drops into empty tiles; simple probability per call.
 /// Spawn new pickups or hazards into empty tiles using a seeded RNG.
