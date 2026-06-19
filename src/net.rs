@@ -79,12 +79,14 @@ pub fn start_ws_server(state: SharedState, addr: &str) {
                     ws.on_upgrade(move |socket| client_connection(socket, state))
                 },
             );
-
             let index_route = warp::path::end().map(|| warp::reply::html(INDEX_HTML));
 
-            let routes = index_route.or(ws_route).with(
-                warp::cors().allow_origins(vec!["http://127.0.0.1:9001", "http://localhost:9001"]),
-            );
+            let allowed_origins_env = std::env::var("CORS_ALLOWED_ORIGINS")
+                .unwrap_or_else(|_| "http://127.0.0.1:9001,http://localhost:9001".to_string());
+
+            let routes = index_route
+                .or(ws_route)
+                .with(warp::cors().allow_origins(allowed_origins_env.split(',')));
 
             warp::serve(routes)
                 .run(addr.parse::<std::net::SocketAddr>().unwrap())
