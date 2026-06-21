@@ -299,6 +299,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_regenerate_map_updates_state() {
+        let mut gs = GameState {
+            phase: AppPhase::Playing,
+            stats: PlayerStats {
+                health: 100,
+                armor: 50,
+                ap: 12,
+                is_supercharging: false,
+                has_shield: false,
+                active_item: 0,
+                item_charges: 0,
+            },
+            map_matrix: vec![Tile::Empty as u8; 25],
+            width: 5,
+            height: 5,
+            seed: 1,
+            player_idx: 0,
+            feedback: "Initial feedback.".to_string(),
+        };
+
+        regenerate_map(&mut gs, 42, 10);
+
+        assert_eq!(gs.width, 10);
+        assert_eq!(gs.height, 10);
+        assert_eq!(gs.seed, 42);
+        assert_eq!(gs.map_matrix.len(), 100);
+        assert_eq!(gs.feedback, "Map regenerated.");
+        assert!(gs.player_idx < 100);
+    }
+
+    #[test]
     fn deterministic_map_same_seed() {
         let (a, _) = generate_map(42, 8, 8);
         let (b, _) = generate_map(42, 8, 8);
