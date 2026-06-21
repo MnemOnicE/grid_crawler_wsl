@@ -1,3 +1,8 @@
+🔒 Fix permissive CORS policy
+
+🎯 **What:** The application used `warp::cors().allow_any_origin()`, which allowed any origin to access the API.
+⚠️ **Risk:** Cross-Origin Resource Sharing (CORS) misconfigurations can lead to unauthorized access to the API from malicious websites.
+🛡️ **Solution:** Replaced `warp::cors().allow_any_origin()` with explicit allowed origins (`http://127.0.0.1:9001` and `http://localhost:9001`).
 🧹 Improve code health by implementing missing Overdrive feature
 
 🎯 **What:** Hooked up the missing 'Overdrive' (supercharging) action in the key mapper and implemented its logic in state.
