@@ -258,6 +258,17 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
 
 /// Spawn occasional drops into empty tiles; simple probability per call.
 /// Spawn new pickups or hazards into empty tiles using a seeded RNG.
+/// Toggle overdrive (supercharging) state.
+pub fn toggle_overdrive(state: &mut GameState) -> bool {
+    state.stats.is_supercharging = !state.stats.is_supercharging;
+    if state.stats.is_supercharging {
+        state.feedback = "Overdrive engaged!".to_string();
+    } else {
+        state.feedback = "Overdrive disengaged.".to_string();
+    }
+    false
+}
+
 pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
     use rand::Rng;
     use rand::SeedableRng;
