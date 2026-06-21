@@ -216,10 +216,20 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState, aiming: bool) {
         start_x = state.width.saturating_sub(view_w);
     }
     for row in start_y..(start_y + view_h) {
-        let mut spans = Vec::new();
-        for col in start_x..(start_x + view_w) {
-            let idx = row * state.width + col;
-            let cell_byte = state.map_matrix.get(idx).copied().unwrap_or(0x00);
+        let mut spans = Vec::with_capacity(view_w);
+        let row_start_idx = row * state.width + start_x;
+        let row_end_idx = row_start_idx + view_w;
+        let row_slice = state
+            .map_matrix
+            .get(row_start_idx..row_end_idx)
+            .unwrap_or(&[]);
+
+        for cell_byte in row_slice
+            .iter()
+            .copied()
+            .chain(std::iter::repeat(0x00))
+            .take(view_w)
+        {
             let (glyph, color) = match cell_byte {
                 0x00 => ("··", Color::DarkGray), // empty / mud
                 0x01 => ("██", Color::White),    // obstacle / cover
