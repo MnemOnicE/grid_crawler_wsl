@@ -222,14 +222,9 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState, aiming: bool) {
         let row_slice = state
             .map_matrix
             .get(row_start_idx..row_end_idx)
-            .unwrap_or(&[]);
+            .unwrap_or(&[0x00; 16][..view_w]);
 
-        for cell_byte in row_slice
-            .iter()
-            .copied()
-            .chain(std::iter::repeat(0x00))
-            .take(view_w)
-        {
+        for &cell_byte in row_slice {
             let (glyph, color) = match cell_byte {
                 0x00 => ("··", Color::DarkGray), // empty / mud
                 0x01 => ("██", Color::White),    // obstacle / cover
