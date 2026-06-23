@@ -30,7 +30,8 @@ button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 <pre id="log">Connecting…</pre>
 <script>
 const log = document.getElementById('log');
-const ws = new WebSocket(`ws://${location.host}/ws`);
+const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const ws = new WebSocket(`${protocol}//${location.host}/ws`);
 ws.onopen = () => log.textContent = 'Connected.';
 ws.onmessage = event => {
   const state = JSON.parse(event.data);
