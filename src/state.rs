@@ -326,7 +326,7 @@ mod tests {
         assert_eq!(gs.seed, 42);
         assert_eq!(gs.map_matrix.len(), 100);
         assert_eq!(gs.feedback, "Map regenerated.");
-        assert!(gs.player_idx < 100);
+        assert_eq!(gs.map_matrix[gs.player_idx], Tile::Player as u8);
     }
 
     #[test]
