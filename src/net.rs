@@ -2,54 +2,7 @@ use crate::state::{SharedState, fire_at_direction, move_player};
 use std::sync::Arc;
 use warp::Filter;
 
-const INDEX_HTML: &str = r#"<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-<meta charset=\"utf-8\">
-<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0\">
-<title>Grid Crawler Mobile</title>
-<style>
-body { background:#121212; color:#eee; font-family:system-ui, sans-serif; text-align:center; margin:0; padding:1rem; }
-button { margin:.25rem; padding:.75rem 1.1rem; font-size:1rem; border:none; border-radius:.5rem; background:#007acc; color:#fff; cursor:pointer; touch-action:manipulation; transition:background 0.2s, transform 0.1s; }
-button:hover { background:#005f9e; }
-button:active { transform:scale(0.95); background:#004a7c; }
-button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
-#log { margin-top:1rem; font-family:monospace; white-space:pre-wrap; text-align:left; max-width:100%; }
-</style>
-</head>
-<body>
-<h1>Grid Crawler Remote</h1>
-<div>
-<button onclick=\"moveDir('up')\" aria-label=\"Move Up\">Move ↑</button>
-<button onclick=\"moveDir('left')\" aria-label=\"Move Left\">Move ←</button>
-<button onclick=\"moveDir('right')\" aria-label=\"Move Right\">Move →</button>
-<button onclick=\"moveDir('down')\" aria-label=\"Move Down\">Move ↓</button>
-</div>
-<div>
-<button onclick=\"fireDir('up')\" aria-label=\"Fire Up\">Fire ↑</button>
-<button onclick=\"fireDir('left')\" aria-label=\"Fire Left\">Fire ←</button>
-<button onclick=\"fireDir('right')\" aria-label=\"Fire Right\">Fire →</button>
-<button onclick=\"fireDir('down')\" aria-label=\"Fire Down\">Fire ↓</button>
-</div>
-<pre id=\"log\">Connecting…</pre>
-<script>
-const log = document.getElementById('log');
-const ws = new WebSocket(`ws://${location.host}/ws`);
-ws.onopen = () => log.textContent = 'Connected.';
-ws.onmessage = event => {
-  const state = JSON.parse(event.data);
-  log.textContent = `Map ${state.width}x${state.height}\nHP:${state.health} AP:${state.ap} ARMOR:${state.armor}\n\n` + state.map.map(v => v.toString(16).padStart(2,'0')).reduce((acc,val,i)=> {
-    const row = Math.floor(i/state.width);
-    return acc + val + ((i+1)%state.width===0 ? '\n' : ' ');
-  }, '');
-};
-ws.onclose = () => log.textContent += '\nDisconnected.';
-function sendCommand(action, direction) { ws.send(JSON.stringify({ action, direction })); }
-function moveDir(dir) { sendCommand('move', dir); }
-function fireDir(dir) { sendCommand('fire', dir); }
-</script>
-</body>
-</html>"#;
+const INDEX_HTML: &str = include_str!("index.html");
 
 #[derive(serde::Serialize)]
 struct PublicState<'a> {
