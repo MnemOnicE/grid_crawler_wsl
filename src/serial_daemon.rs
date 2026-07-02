@@ -49,13 +49,18 @@ pub fn init_hardware_bridge(state: SharedState, port_name: &str) -> Box<dyn Writ
             let sink = std::io::sink();
             let sim_state = state.clone();
             std::thread::spawn(move || {
-                // Simple simulator: every second, reduce cooldowns or spawn small updates
+                // DEV-ONLY HARDWARE MOCK:
+                // This simulated loop mimics periodic hardware AP regeneration when playing locally
+                // without an attached serial device.
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(1));
-                    let mut lock = sim_state.lock().unwrap();
-                    // regen small AP over time
-                    lock.stats.ap = (lock.stats.ap + 1).min(12);
-                    lock.feedback = "Hardware mock: Regenerated 1 AP".to_string();
+                    if let Ok(mut lock) = sim_state.lock() {
+                        let should_update = lock.phase == AppPhase::Playing && lock.stats.ap < 12;
+                        if should_update {
+                            lock.stats.ap += 1;
+                            lock.feedback = "Hardware mock: Regenerated 1 AP".to_string();
+                        }
+                    }
                 }
             });
             Box::new(sink)

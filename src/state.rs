@@ -258,6 +258,17 @@ fn consume_tile_effect(state: &mut GameState, tile: u8) -> bool {
 
 /// Spawn occasional drops into empty tiles; simple probability per call.
 /// Spawn new pickups or hazards into empty tiles using a seeded RNG.
+/// Toggle overdrive (supercharging) state.
+pub fn toggle_overdrive(state: &mut GameState) -> bool {
+    state.stats.is_supercharging = !state.stats.is_supercharging;
+    if state.stats.is_supercharging {
+        state.feedback = "Overdrive engaged!".to_string();
+    } else {
+        state.feedback = "Overdrive disengaged.".to_string();
+    }
+    false
+}
+
 pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
     use rand::Rng;
     use rand::SeedableRng;
@@ -286,6 +297,37 @@ pub fn spawn_drops(state: &mut GameState, rng_seed: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_regenerate_map_updates_state() {
+        let mut gs = GameState {
+            phase: AppPhase::Playing,
+            stats: PlayerStats {
+                health: 100,
+                armor: 50,
+                ap: 12,
+                is_supercharging: false,
+                has_shield: false,
+                active_item: 0,
+                item_charges: 0,
+            },
+            map_matrix: vec![Tile::Empty as u8; 25],
+            width: 5,
+            height: 5,
+            seed: 1,
+            player_idx: 0,
+            feedback: "Initial feedback.".to_string(),
+        };
+
+        regenerate_map(&mut gs, 42, 10);
+
+        assert_eq!(gs.width, 10);
+        assert_eq!(gs.height, 10);
+        assert_eq!(gs.seed, 42);
+        assert_eq!(gs.map_matrix.len(), 100);
+        assert_eq!(gs.feedback, "Map regenerated.");
+        assert_eq!(gs.map_matrix[gs.player_idx], Tile::Player as u8);
+    }
 
     #[test]
     fn deterministic_map_same_seed() {

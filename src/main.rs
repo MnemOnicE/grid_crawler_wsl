@@ -5,7 +5,7 @@ use crossterm::{
 };
 use grid_crawler_wsl::state::{
     AppPhase, GameState, fire_at_direction, initialize_state, move_player, regenerate_map,
-    spawn_drops,
+    spawn_drops, toggle_overdrive,
 };
 use rand::random;
 use ratatui::{
@@ -132,10 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             aiming = !aiming;
                             false
                         }
-                        KeyCode::Char('O') => {
-                            /* Overdrive */
-                            false
-                        }
+                        KeyCode::Char('o') | KeyCode::Char('O') => toggle_overdrive(&mut lock),
                         _ => false,
                     };
                 }
@@ -219,10 +216,15 @@ fn draw_combat_ui(f: &mut Frame, state: &GameState, aiming: bool) {
         start_x = state.width.saturating_sub(view_w);
     }
     for row in start_y..(start_y + view_h) {
-        let mut spans = Vec::new();
-        for col in start_x..(start_x + view_w) {
-            let idx = row * state.width + col;
-            let cell_byte = state.map_matrix.get(idx).copied().unwrap_or(0x00);
+        let mut spans = Vec::with_capacity(view_w);
+        let row_start_idx = row * state.width + start_x;
+        let row_end_idx = row_start_idx + view_w;
+        let row_slice = state
+            .map_matrix
+            .get(row_start_idx..row_end_idx)
+            .unwrap_or(&[0x00; 16][..view_w]);
+
+        for &cell_byte in row_slice {
             let (glyph, color) = match cell_byte {
                 0x00 => ("··", Color::DarkGray), // empty / mud
                 0x01 => ("██", Color::White),    // obstacle / cover
