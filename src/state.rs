@@ -299,6 +299,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_toggle_overdrive() {
+        let mut gs = GameState {
+            phase: AppPhase::Playing,
+            stats: PlayerStats {
+                health: 100,
+                armor: 0,
+                ap: 4,
+                is_supercharging: false,
+                has_shield: false,
+                active_item: 0,
+                item_charges: 0,
+            },
+            map_matrix: vec![],
+            width: 0,
+            height: 0,
+            seed: 0,
+            player_idx: 0,
+            feedback: "".to_string(),
+        };
+
+        // Turn on
+        let ret1 = toggle_overdrive(&mut gs);
+        assert!(!ret1);
+        assert!(gs.stats.is_supercharging);
+        assert_eq!(gs.feedback, "Overdrive engaged!");
+
+        // Turn off
+        let ret2 = toggle_overdrive(&mut gs);
+        assert!(!ret2);
+        assert!(!gs.stats.is_supercharging);
+        assert_eq!(gs.feedback, "Overdrive disengaged.");
+    }
+
+    #[test]
     fn test_regenerate_map_updates_state() {
         let mut gs = GameState {
             phase: AppPhase::Playing,
