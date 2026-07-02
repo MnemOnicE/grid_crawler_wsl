@@ -91,41 +91,21 @@ async fn client_connection(ws: warp::ws::WebSocket, state: SharedState) {
                 && let Ok(cmd) = serde_json::from_str::<ClientCommand>(text)
             {
                 let mut lock = state_for_recv.lock().unwrap();
-                if cmd.action == "move" {
-                    if let Some(direction) = cmd.direction.as_deref() {
-                        match direction {
-                            "up" => {
-                                let _ = move_player(&mut lock, 0, -1);
-                            }
-                            "down" => {
-                                let _ = move_player(&mut lock, 0, 1);
-                            }
-                            "left" => {
-                                let _ = move_player(&mut lock, -1, 0);
-                            }
-                            "right" => {
-                                let _ = move_player(&mut lock, 1, 0);
-                            }
-                            _ => {}
+                if let Some(direction) = cmd.direction.as_deref() {
+                    let offsets = match direction {
+                        "up" => Some((0, -1)),
+                        "down" => Some((0, 1)),
+                        "left" => Some((-1, 0)),
+                        "right" => Some((1, 0)),
+                        _ => None,
+                    };
+
+                    if let Some((dx, dy)) = offsets {
+                        if cmd.action == "move" {
+                            let _ = move_player(&mut lock, dx, dy);
+                        } else if cmd.action == "fire" {
+                            let _ = fire_at_direction(&mut lock, dx, dy);
                         }
-                    }
-                } else if cmd.action == "fire"
-                    && let Some(direction) = cmd.direction.as_deref()
-                {
-                    match direction {
-                        "up" => {
-                            let _ = fire_at_direction(&mut lock, 0, -1);
-                        }
-                        "down" => {
-                            let _ = fire_at_direction(&mut lock, 0, 1);
-                        }
-                        "left" => {
-                            let _ = fire_at_direction(&mut lock, -1, 0);
-                        }
-                        "right" => {
-                            let _ = fire_at_direction(&mut lock, 1, 0);
-                        }
-                        _ => {}
                     }
                 }
             }
