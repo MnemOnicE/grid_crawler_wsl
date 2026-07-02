@@ -332,7 +332,6 @@ mod tests {
         assert_eq!(gs.feedback, "Overdrive disengaged.");
     }
 
-
     #[test]
     fn test_regenerate_map_updates_state() {
         let mut gs = GameState {
